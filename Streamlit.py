@@ -99,7 +99,7 @@ def trim_data(data):
                 # If adding this item exceeds the limit, break the loop
                 break
                 
-        log_messages(status_bar, f"Data exceeded maximum GPT token limit and was trimmed to {len(trimmed_data)}", "warning")
+        log_messages(status_bar, f"Data exceeded maximum GPT token limit and was trimmed to {len(trimmed_data)} items", "warning")
         return trimmed_data
     
     return data  # Return the original data list if no trimming is necessary
@@ -126,7 +126,7 @@ st.markdown(
     "specific airlines, or flight routes?  Ask away!  Whether you\'re a seasoned traveler, an aviation enthusiast, "
     "or simply seeking knowledge, this data is ready to answer your questions. Don't hesitate to delve into details "
     "like departure times, destinations, and even aircraft configurations.\n"
-    "You can also specify which graphs you want to see, and otherwise GPT will be creative and create some graphs for you!")
+    "\nYou can also specify which graphs you want to see, and otherwise GPT will be creative and create some graphs for you!")
 st.write("**Based on data. Made by Gilles. Created for algorythm. Built with trust.**")
 st.divider()
 user_input = st.text_input('So what questions do you have about the world of flights today? (e.g: Show me 15 flights and a graph that shows the departure candidates count)')
