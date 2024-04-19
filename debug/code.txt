@@ -1,0 +1,11 @@
+In this file you will find all the code that ChatGPT created: 
+
+
+This is the generated code during attempt 1 :None
+Error that should be solved: write() argument must be str, not None
+
+
+
+This is the generated code during attempt 2 :None
+Error that should be solved: write() argument must be str, not None
+

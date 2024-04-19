@@ -4,6 +4,8 @@ import pandas as pd
 import requests
 import streamlit as st
 from openai import AzureOpenAI
+import plotly
+import matplotlib
 
 
 client = AzureOpenAI(
@@ -12,8 +14,8 @@ client = AzureOpenAI(
     api_version="2024-02-15-preview"
 )
 
-# Define the maximum token limit for GPT
-MAX_TOKENS = 350
+# Max data length before GPT does weird things
+MAX_LENGTH = 116
 
 
 def log_messages(object_name, message, state):
@@ -75,11 +77,12 @@ def count_tokens(text):
 def trim_data(data):
     total_tokens = sum(sum(count_tokens(value) for value in item.values()) for item in data)
     
-    if total_tokens > MAX_TOKENS:
-        log_messages(status_bar, "Data exceeded maximum token limit and was trimmed.", "warning")
+    
+    if total_tokens > MAX_LENGTH:
+        
         
         # Calculate how many tokens to trim
-        tokens_to_trim = total_tokens - MAX_TOKENS
+        tokens_to_trim = total_tokens - MAX_LENGTH
         
         # Sort the items by token count (descending order)
         sorted_data = sorted(data, key=lambda item: sum(count_tokens(value) for value in item.values()), reverse=True)
@@ -89,13 +92,14 @@ def trim_data(data):
         current_tokens = 0
         for item in sorted_data:
             item_tokens = sum(count_tokens(value) for value in item.values())
-            if current_tokens + item_tokens <= MAX_TOKENS:
+            if current_tokens + item_tokens <= MAX_LENGTH:
                 trimmed_data.append(item)
                 current_tokens += item_tokens
             else:
                 # If adding this item exceeds the limit, break the loop
                 break
-        
+                
+        log_messages(status_bar, f"Data exceeded maximum GPT token limit and was trimmed to {len(trimmed_data)}", "warning")
         return trimmed_data
     
     return data  # Return the original data list if no trimming is necessary
@@ -121,10 +125,11 @@ st.markdown(
     "Open Flights Data, putting the power of information at your fingertips. Curious about aircraft types, "
     "specific airlines, or flight routes?  Ask away!  Whether you\'re a seasoned traveler, an aviation enthusiast, "
     "or simply seeking knowledge, this data is ready to answer your questions. Don't hesitate to delve into details "
-    "like departure times, destinations, and even aircraft configurations.")
-st.write("**Based on data. Made by Gilles for Algorythm. Built with trust.**")
+    "like departure times, destinations, and even aircraft configurations.\n"
+    "You can also specify which graphs you want to see, and otherwise GPT will be creative and create some graphs for you!")
+st.write("**Based on data. Made by Gilles. Created for algorythm. Built with trust.**")
 st.divider()
-user_input = st.text_input('So what questions do you have about the world of flights today?')
+user_input = st.text_input('So what questions do you have about the world of flights today? (e.g: Show me 15 flights and a graph that shows the departure candidates count)')
 
 if user_input:
     # Connecting to Database API
@@ -144,19 +149,20 @@ if user_input:
     
         # Trim the data list to fit within the token limit
         data['data'] = trim_data(data['data'])
-
         
+       
 
-        
 
         # Ask GPT for visualisations
         status_bar2 = st.status("Creating smart visualisations")
         log_messages(status_bar2, "Creating smart visualisations", "running")
 
         question = (
-            f"This is the data that I am using in my code: {data} \nBased on this data "
-            f"write Streamlit version 1.33.0 code that creates some nice visualization of this data. \n"
-            f"Use only Streamlit in the generated code and nothing else.")
+            f"Write Streamlit version 1.33.0 code that creates some nice visualization. \n"
+            f"This is what the user asks: {user_input}"
+            f"If for example the user only asks to show 10 aircrafts you can be creative and also add some graphs, boxplots and visualisations for example. The installed modules are pandas, ploty, streamlit and matplotlib"
+            f"Use only Streamlit code and nothing else. Put the code between <code>Put code here</code>"
+            f"This is the data to creates some nice visualization on: {data} \n ")
 
         f = open("debug/prompt.txt", "w")
         f.write("In this file you will find the prompts that are sent to ChatGPT: \n\n")
@@ -168,6 +174,8 @@ if user_input:
         st.title("Query to be executed")
         st.write("This is the GPT generated query that our database will use to request the data")
         st.code(data['query'])
+        
+       
 
         note, code, reply = ask_open_ai(question)
 
@@ -179,7 +187,7 @@ if user_input:
         f.write("In this file you will find all the code that ChatGPT created: \n")
         f.close()
 
-        max_attempts = 5
+        max_attempts = 3
         attempts = 0
 
         while attempts < max_attempts:
@@ -191,7 +199,7 @@ if user_input:
                 log_messages(status_bar2, "Succesfully created the visualisation code", "complete")
 
                 f = open("debug/note.txt", "a")
-                f.write("\n" + str(note) + "\n\n")
+                f.write("\n" + "--------------------------------------------------" + "\n" + f"This is the generated note during attempt {attempts}: \n" + str(note) + "\n\n" + "\n" + "--------------------------------------------------" + "\n\n" )
                 f.close()
                 f = open("debug/code.txt", "a")
                 f.write(code)
@@ -218,11 +226,7 @@ if user_input:
                 f.write(f"\n\nThis is the generated code during attempt {attempts} :" + str(
                     code) + f"\nError that should be solved: {str(e)}" + "\n\n")
                 f.close()
-                f = open(f"debug/note.txt", "a")
-                f.write(f"\n\n\nThis is the generated note during attempt {attempts} :" + str(
-                    note) + f"\nError that should be solved: {str(e)}")
-                f.write(str(note))
-                f.close()
+
 
                 if attempts == max_attempts:
                     log_messages(status_bar3, f"Asking GPT for the last time", "running")
@@ -234,12 +238,14 @@ if user_input:
                     log_messages(status_bar3,
                                  "Max retry attempts reached. Unable to create visualisation, showing standard dataframe.",
                                  "error")
-
+                    
                     st.title("Table view")
                     st.write("This is a standard table with all the data you requested")
-
+                    
                     df = pd.DataFrame(data['data'])
                     st.write(df)
+
+                   
 
                     st.title("This is the code that GPT generated")
                     st.code(str(code))
